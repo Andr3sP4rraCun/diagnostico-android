@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnóstico de fallas en Android con ADB</title>
+<style>
+:root{--bg:#f3f6f4;--sf:#fff;--ink:#14231c;--mut:#4d5f56;--ln:#d3dcd6;--ac:#0b7a53;--ac2:#e3f2ea;--code:#101a15;--codeink:#d6f5e4}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1713;--sf:#17211c;--ink:#e6efe9;--mut:#9db1a6;--ln:#2b3a33;--ac:#4fc995;--ac2:#1d3329;--code:#0a100d;--codeink:#c8f0dc}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Segoe UI",system-ui,sans-serif}
+header,main{max-width:980px;margin:0 auto;padding:0 18px}
+header{padding-top:28px}
+h1{font-size:1.7rem;line-height:1.2;margin:0 0 6px}
+.sub{color:var(--mut);margin:0 0 20px;max-width:62ch}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+nav button{font:inherit;padding:9px 14px;border:1px solid var(--ln);background:var(--sf);color:var(--ink);border-radius:8px;cursor:pointer}
+nav button[aria-selected=true]{background:var(--ac);border-color:var(--ac);color:#fff}
+nav button:focus-visible,.cp:focus-visible,.zoom:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.panel{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:20px;margin-bottom:18px}
+h2{font-size:1.25rem;margin:0 0 4px}
+h3{font-size:1.02rem;margin:22px 0 8px}
+.lead{color:var(--mut);margin:0 0 14px;max-width:70ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:22px}
+@media(max-width:780px){.grid{grid-template-columns:1fr}}
+.zoom{display:block;width:100%;max-height:560px;overflow:auto;border:1px solid var(--ln);border-radius:8px;background:#fff;padding:6px;cursor:zoom-in;text-align:center}
+.zoom img{max-width:100%;height:auto}
+.hint{font-size:.85rem;color:var(--mut);margin:6px 0 0}
+.cmd{background:var(--code);border-radius:8px;padding:10px 12px;margin:0 0 10px}
+.cmd .l{color:#8fb3a1;font-size:.82rem;margin:0 0 4px}
+.cmd .r{display:flex;gap:10px;align-items:flex-start}
+.cmd code{flex:1;color:var(--codeink);font:.88rem/1.45 "Cascadia Code",Consolas,monospace;word-break:break-all}
+.cp{font:inherit;font-size:.82rem;padding:3px 10px;border-radius:6px;border:1px solid #3d5a4c;background:transparent;color:var(--codeink);cursor:pointer}
+ul.st{list-style:none;padding:0;margin:0}
+ul.st li{margin:0 0 8px}
+ul.st label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+ul.st input{margin-top:5px;accent-color:var(--ac)}
+ul.st input:checked+span{color:var(--mut);text-decoration:line-through}
+.prog{font-size:.88rem;color:var(--mut);margin:8px 0 0}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--ln);vertical-align:top}
+th{font-weight:600}
+td:first-child{font-family:"Cascadia Code",Consolas,monospace;font-size:.86rem;white-space:nowrap}
+.note{background:var(--ac2);border-left:4px solid var(--ac);padding:10px 12px;border-radius:0 8px 8px 0;font-size:.93rem;margin-top:14px}
+.err{color:#b42318;font-size:.9rem}
+dialog{border:0;padding:0;background:transparent;max-width:96vw;max-height:94vh}
+dialog::backdrop{background:rgba(0,0,0,.75)}
+dialog .box{background:#fff;border-radius:10px;padding:10px;max-height:92vh;overflow:auto}
+dialog img{display:block;max-width:none;width:min(1100px,92vw);height:auto}
+dialog button{position:sticky;top:0;float:right;font:inherit;padding:6px 12px;border-radius:6px;border:1px solid #888;background:#fff;color:#111;cursor:pointer}
+footer{max-width:980px;margin:0 auto;padding:6px 18px 36px;color:var(--mut);font-size:.88rem}
+@media(prefers-reduced-motion:no-preference){.panel{animation:in .2s ease-out}@keyframes in{from{opacity:.4}to{opacity:1}}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Diagnóstico de fallas en Android con ADB</h1>
+  <p class="sub">Manual interactivo del proyecto final de Mantenimiento de Dispositivos Móviles (CUN). Elige una falla, sigue el diagrama y corre los comandos en un equipo conectado por USB con depuración activada.</p>
+  <nav id="tabs" role="tablist" aria-label="Fallas"></nav>
+</header>
+<main>
+  <section id="view" class="panel" role="tabpanel"></section>
+  <section class="panel">
+    <h2>Equipo de prueba</h2>
+    <p class="lead">Mediciones reales tomadas por ADB en un equipo sin falla, para comparar contra tus lecturas.</p>
+    <table>
+      <tr><th>Dato</th><th>Valor medido</th></tr>
+      <tr><td>Modelo</td><td>Samsung SM-A217M, Android 12</td></tr>
+      <tr><td>Procesador</td><td>Exynos 850, 8 núcleos, arm64-v8a</td></tr>
+      <tr><td>RAM</td><td>3.8 GB en total y 1.74 GB disponibles (unos 46%)</td></tr>
+      <tr><td>Swap</td><td>unos 1.2 GB usados de 4 GB</td></tr>
+      <tr><td>CPU en reposo</td><td>cerca del 4% de uso</td></tr>
+      <tr><td>Almacenamiento /data</td><td>13 GB usados de 110 GB (12%)</td></tr>
+      <tr><td>Batería</td><td>health 2 (buena), temperatura 26.1 °C</td></tr>
+    </table>
+    <p class="note">Los umbrales de los diagramas (45 °C, 15% de memoria libre, 90% de almacenamiento) son valores de referencia prácticos, no un estándar oficial. Además, las particiones del sistema (/, /vendor, /product) siempre aparecen al 100% porque son de solo lectura; solo importa /data.</p>
+  </section>
+</main>
+<footer>Los comandos de esta página solo leen información del equipo y no modifican nada.</footer>
+<dialog id="dlg"><div class="box"><button id="close">Cerrar</button><img id="big" alt=""></div></dialog>
+<script>
+const BAT=[["status","2 cargando, 3 descargando, 4 no carga, 5 completa"],["health","2 buena, 3 sobrecalentada, 4 agotada"],["temperature","en décimas de °C (261 = 26.1 °C)"],["current now","corriente de carga actual"],["USB powered / AC powered","indica si carga por USB o por cargador de pared"]];
+const TOP='adb shell "top -n 1 -b | head -n 20"';
+const F=[
+{id:"carga",tab:"No carga",t:"El equipo no carga o carga lento",img:"flujo1_carga.png",
+ d:"Primero se descartan el cable, el cargador y el puerto; después se leen los datos de la batería.",
+ c:[["Estado de la batería","adb shell dumpsys battery"]],ref:BAT,
+ s:["Verifica si aparece el ícono de carga.","Prueba con otro cable y otro cargador.","Inspecciona y limpia el puerto de carga.","Lee present, status y health con dumpsys battery.","Si carga, revisa current now, USB powered y AC powered.","Si está en el USB del PC, prueba con cargador de pared.","Si health no es 2 o la temperatura es alta, cambia la batería; si no, revisa el software."]},
+{id:"descarga",tab:"Se descarga rápido",t:"La batería se descarga muy rápido",img:"flujo2_descarga.png",
+ d:"Se revisa la salud de la batería y luego qué apps consumen más.",
+ c:[["Salud y nivel","adb shell dumpsys battery"],["Consumo por app (se guarda en un archivo)","adb shell dumpsys batterystats --charged > batterystats.txt"]],ref:BAT,
+ s:["Lee health, temperature y level.","Si health no es 2 o la temperatura es alta, evalúa reemplazar la batería.","Revisa en batterystats qué app consume más.","Detén, actualiza o desinstala la app responsable.","Reduce brillo y desactiva sincronización y conexiones en segundo plano.","Reinicia y prueba en modo seguro.","Haz copia de seguridad y evalúa restauración o cambio de batería."]},
+{id:"calor",tab:"Sobrecalentamiento",t:"El equipo se calienta demasiado",img:"flujo3_calor.png",
+ d:"Se mide la temperatura y se separa el calor por carga del calor por carga de trabajo.",
+ c:[["Temperatura y salud","adb shell dumpsys battery"],["Procesos con más CPU",TOP]],ref:BAT,
+ s:["Lee temperature (divide entre 10 para °C) y health.","Si está bajo 45 °C y health no es 3, solo observa el uso.","Si se calienta cargando, quita la funda y prueba otro cargador y cable originales.","Si no es por la carga, busca procesos con CPU alta en top.","Detén, actualiza o desinstala la app responsable.","Si persiste, es posible falla de hardware: deja de usarlo y llévalo a taller."]},
+{id:"lento",tab:"Lentitud",t:"El equipo va lento",img:"flujo4_lentitud.png",
+ d:"Se revisan memoria, almacenamiento y CPU, en ese orden.",
+ c:[["Memoria","adb shell \"grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo\""],["Almacenamiento","adb shell df -h"],["Procesos con más CPU",TOP],["Memoria por app","adb shell dumpsys meminfo"]],
+ ref:[["MemAvailable","memoria realmente disponible; menos del 15% de MemTotal es poca"],["/data","particiones de usuario; más del 90% de uso es almacenamiento lleno"],["idle (top)","porcentaje de CPU libre"]],
+ s:["Compara MemAvailable con MemTotal.","Revisa el uso de la partición /data con df -h.","Revisa en top si un proceso consume CPU de forma sostenida.","Reinicia y actualiza el sistema y las apps.","Si sigue lento, prueba en modo seguro.","Si no mejora, haz copia de seguridad y restauración de fábrica."]}
+];
+const tabs=document.getElementById("tabs"),view=document.getElementById("view"),dlg=document.getElementById("dlg"),big=document.getElementById("big");
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e}
+function show(i){
+  const f=F[i];
+  [...tabs.children].forEach((b,k)=>b.setAttribute("aria-selected",k===i));
+  view.innerHTML="";
+  view.append(el("h2","",f.t),el("p","lead",f.d));
+  const g=el("div","grid"),L=el("div"),R=el("div");
+  const z=el("button","zoom");z.type="button";z.setAttribute("aria-label","Ampliar el diagrama");
+  const im=el("img");im.src=f.img;im.alt="Diagrama de flujo: "+f.t;
+  im.onerror=()=>{z.replaceChildren(el("p","err","No se encontró "+f.img+". Súbelo a la misma carpeta que index.html."))};
+  z.append(im);z.onclick=()=>{big.src=f.img;big.alt=im.alt;dlg.showModal()};
+  L.append(z,el("p","hint","Toca el diagrama para verlo en grande."));
+  R.append(el("h3","","Comandos"));
+  f.c.forEach(([lb,cm])=>{
+    const box=el("div","cmd"),row=el("div","r"),code=el("code","",cm),b=el("button","cp","Copiar");
+    b.type="button";
+    b.onclick=async()=>{try{await navigator.clipboard.writeText(cm);b.textContent="Copiado"}catch(e){b.textContent="Selecciona y copia"}setTimeout(()=>b.textContent="Copiar",1600)};
+    row.append(code,b);box.append(el("p","l",lb),row);R.append(box);
+  });
+  R.append(el("h3","","Pasos"));
+  const ul=el("ul","st"),pr=el("p","prog");
+  const upd=()=>{const n=ul.querySelectorAll("input:checked").length;pr.textContent=n+" de "+f.s.length+" pasos hechos"};
+  f.s.forEach(s=>{const li=el("li"),lab=el("label"),cb=el("input");cb.type="checkbox";cb.onchange=upd;lab.append(cb,el("span","",s));li.append(lab);ul.append(li)});
+  upd();R.append(ul,pr,el("h3","","Cómo leer los valores"));
+  const tb=el("table");tb.innerHTML="<tr><th>Campo</th><th>Significado</th></tr>";
+  f.ref.forEach(([a,b])=>{const tr=el("tr");tr.append(el("td","",a),el("td","",b));tb.append(tr)});
+  R.append(tb);g.append(L,R);view.append(g);
+}
+F.forEach((f,i)=>{const b=el("button","",f.tab);b.type="button";b.setAttribute("role","tab");b.onclick=()=>show(i);tabs.append(b)});
+document.getElementById("close").onclick=()=>dlg.close();
+dlg.addEventListener("click",e=>{if(e.target===dlg)dlg.close()});
+show(0);
+</script>
+</body>
+</html>
